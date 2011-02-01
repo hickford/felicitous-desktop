@@ -4,17 +4,12 @@ import math, random, sys, os, datetime, xml.dom.minidom, urllib, optparse
 # non standard modules, both avaliable in easy_install
 import ephem		# http://rhodesmill.org/pyephem/
 import flickrapi	# http://stuvel.eu/projects/flickrapi
-
+import tempfile
+import platform
 description = """Set an interesting desktop background from flickr based on time of day and current weather for your location."""
-
 default_yahoo_location_parameter = "UKXX0028"	# Cambridge, UK
-downloads = os.path.expanduser("~/twilight")	# directory in which save backgrounds
-
-min_width = 1280	# reject photos narrower than this
-min_ratio = 4/3		# reject photos thinner than this
 
 parser = optparse.OptionParser(description=description,version="%prog 0.1")
-
 parser.add_option("-l","--location",action="store",type="string",dest="yahoo_location_parameter",default=default_yahoo_location_parameter,help="Yahoo weather location parameter")
 parser.add_option("-w","--weather",action="store",type="string",dest="weather",default=None,help="force weather")
 parser.add_option("-t","--time-of-day",action="store",type="string",dest="time_of_day",default=None,help="force time of day")
@@ -22,12 +17,36 @@ parser.add_option("-n","--nilpotent",action="store_false",default=True,dest="act
 
 (options, args) = parser.parse_args()
 
+
+downloads = os.path.normpath(os.path.expanduser("~/felicitous"))	# directory in which save backgrounds
+try:
+  os.mkdir(downloads)
+except:
+  #whatever
+  pass
+min_width = 1280	# reject photos narrower than this
+min_ratio = 4/3		# reject photos thinner than this
+
+
 def set_gnome_background(x):
 	import gconf
 	client = gconf.client_get_default()
 	client.set_string ("/desktop/gnome/background/picture_filename",x)		# doesn't work in crontab :(
 	#client.set_string ("/desktop/gnome/background/picture_options","scaled")
 
+def set_windows_background(x):
+  import ctypes
+  SPI_SETDESKWALLPAPER = 20 # According to http://support.microsoft.com/default.aspx?scid=97142
+  import tempfile
+  from PIL import Image
+  image = Image.open(x)
+
+  bmppath= os.path.normpath(os.path.expanduser("~/epic.bmp"))
+  image.save (bmppath, "BMP")
+  print bmppath
+  ctypes.windll.user32.SystemParametersInfoA(SPI_SETDESKWALLPAPER, 0, bmppath , 0)
+  
+  
 tags = []
 
 yahoo_weather_url = "http://weather.yahooapis.com/forecastrss?p=%s&u=c" % options.yahoo_location_parameter
@@ -207,12 +226,15 @@ print url
 dest = os.path.join(downloads,os.path.basename(orig_url))
 
 if options.active:
-	print
-	if not os.path.exists(dest):
-		print "Downloading %s to %s" % (orig_url, dest)
-		urllib.urlretrieve(orig_url,dest)
+  print
+  if not os.path.exists(dest):
+    print "Downloading %s to %s" % (orig_url, dest)
+    urllib.urlretrieve(orig_url,dest)
 
-	set_gnome_background(dest)
+  if ( platform.system() == "Windows" ):
+    set_windows_background(dest)
+  else:
+    set_gnome_background(dest)
 
-	print "Voila!"
+  print "Voila!"
 
